@@ -1,8 +1,8 @@
-.PHONY: all tests clean install uninstall
+.PHONY: all test clean install uninstall
 
 all: libhuffman.so
 
-tests: 
+test: 
 	@cd tests && make && cd -
 clean:
 	rm *.o *.so
@@ -17,7 +17,7 @@ uninstall:
 	rm /usr/local/include/huffman.h
 
 libhuffman.so: huffman.o
-	$(CC) -shared -o $@ $<
+	$(CC) -std=c99 -shared -o $@ $<
 
 huffman.o: huffman.c heap.c
-	$(CC) -c -o $@ $< -fPIC
+	$(CC) -std=c99 -c -o $@ $< -fPIC
