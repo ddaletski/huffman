@@ -95,17 +95,18 @@ static int compare_node(const void* a, const void* b) {
 static symbol_code append_bit(symbol_code code, char bit) {
     symbol_code new_code;
 
-    new_code.code = (char*) malloc(16);
+    new_code.code = (uchar*) malloc(16);
     memcpy(new_code.code, code.code, 16);
     new_code.bit_length = code.bit_length + 1;
 
     char offset = code.bit_length % 8;
     char byte_pos = code.bit_length / 8;
 
-    if(bit)
+    if(bit) {
         new_code.code[byte_pos] |= (1 << offset);
-    else 
+    } else {
         new_code.code[byte_pos] &= ~(1 << offset);
+    }
 
     return new_code;
 }
@@ -141,8 +142,9 @@ calculate_frequencies(uchar* input, int size, int* outsize) {
     }
 
     for(int i = 0; i < size; ++i) {
-        if(frequencies[*ptr].frequency == 0)
+        if(frequencies[*ptr].frequency == 0) {
             (*outsize)++;
+        }
         frequencies[*ptr++].frequency++;
     }
 
@@ -155,9 +157,10 @@ calculate_frequencies(uchar* input, int size, int* outsize) {
 
 static encoder_tree_node* 
 generate_encoder_tree(symbol_frequency* frequencies, int size) {
-    if(size == 1) // special case where there's only one symbol
+    if(size == 1) { // special case where there's only one symbol
         return new_encoder_tree_leaf(frequencies[0].frequency,
                 frequencies[0].symbol);
+    }
 
     binary_heap* heap = heap_create(size, compare_node);
     symbol_frequency* ptr = frequencies;
@@ -186,9 +189,9 @@ generate_encoder_tree(symbol_frequency* frequencies, int size) {
 
 
 static void destroy_encoder_tree(encoder_tree_node* root) {
-    if(!root)
+    if(!root) {
         return;
-    else if(!root->is_leaf) {
+    } else if(!root->is_leaf) {
         destroy_encoder_tree(root->data.childs.zero);
         destroy_encoder_tree(root->data.childs.one);
     }
@@ -208,17 +211,18 @@ static symbol_code* build_encoder() {
 
 
 static void destroy_encoder(symbol_code* encoder) {
-    for(int i = 0; i < 256; ++i)
+    for(int i = 0; i < 256; ++i) {
         free(encoder[i].code);
+    }
     free(encoder);
 }
 
 
 static void fill_encoder(encoder_tree_node* root, symbol_code* encoder,
         symbol_code prefix) {
-    if(root->is_leaf)
+    if(root->is_leaf) {
         copy_code(encoder + root->data.symbol, &prefix);
-    else {
+    } else {
         fill_encoder(root->data.childs.zero, encoder, append_bit(prefix, 0));
         fill_encoder(root->data.childs.one, encoder, append_bit(prefix, 1));
     }
@@ -250,10 +254,11 @@ static decoder_tree_node* read_decoder_tree(uchar** input, int* leaf_count) {
     decoder_tree_node* root =
         (decoder_tree_node*) malloc(sizeof(decoder_tree_node));
 
-    if(root->is_leaf = node.is_leaf) {
+    if((root->is_leaf = node.is_leaf)) {
         root->data.symbol = node.symbol;
-        if(leaf_count)
+        if(leaf_count) {
             (*leaf_count)++;
+        }
     } else {
         root->data.childs.zero = read_decoder_tree(input, leaf_count);
         root->data.childs.one = read_decoder_tree(input, leaf_count);
@@ -302,8 +307,9 @@ encode_data(uchar* input, uchar* output, int insize, symbol_code* encoder) {
     stream->byte = output;
     stream->bit_pos = 0;
 
-    for(int i = 0; i < insize; ++i, ++input)
+    for(int i = 0; i < insize; ++i, ++input) {
         write_code(stream, encoder + (*input));
+    }
 
     int outsize = stream->byte - output + (stream->bit_pos > 0);
 
@@ -313,12 +319,15 @@ encode_data(uchar* input, uchar* output, int insize, symbol_code* encoder) {
 
 
 uchar* huffman_compress(uchar* input, int insize, int* outsize) {
-    if(!input)
+    if(!input) {
         return NULL;
-    if(!outsize)
+    }
+    if(!outsize) {
         return NULL;
-    if(insize <= 0)
+    }
+    if(insize <= 0) {
         return NULL;
+    }
 
     uchar* output = (uchar*) calloc(insize + 1024, 1);
     uchar* ptr = output;
@@ -368,10 +377,11 @@ decode_data(uchar* input, uchar* output, int outsize, decoder_tree_node* dtree){
             data_read++;
             root = dtree;
         } else {
-            if(bit_mask & (*input))
+            if(bit_mask & (*input)) {
                 root = root->data.childs.one; // right child
-            else
+            } else {
                 root = root->data.childs.zero; // left child
+            }
 
             if(!(bit_mask <<= 1)) { // bit shift in loop
                 ++input;
@@ -382,23 +392,26 @@ decode_data(uchar* input, uchar* output, int outsize, decoder_tree_node* dtree){
 }
 
 uchar* huffman_decompress(uchar* input) {
-    if(input == NULL)
+    if(input == NULL) {
         return NULL;
+    }
 
     uchar* ptr = input;
     int outsize = ((int*) ptr)[0]; // extract size of decompressed data
-    if(outsize <= 0)
+    if(outsize <= 0) {
         return NULL;
+    }
     ptr += 4;
 
     uchar* output = (uchar*) malloc(outsize);
     int leaf_count = 0;
     decoder_tree_node* dtree = read_decoder_tree(&ptr, &leaf_count); // decoder
 
-    if(leaf_count > 1)
+    if(leaf_count > 1) {
         decode_data(ptr, output, outsize, dtree);
-    else // special case when there's only one symbol appears in data
+    } else { // special case when there's only one symbol appears in data
         memset(output, dtree->data.symbol, outsize);
+    }
 
     destroy_decoder_tree(dtree);
     return output;
